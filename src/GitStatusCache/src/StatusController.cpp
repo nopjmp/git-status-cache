@@ -8,6 +8,8 @@
 #define strcasecmp _stricmp
 #endif
 
+constexpr uint32_t VERSION = 1;
+
 StatusController::StatusController()
 	: m_requestShutdown(MakeUniqueHandle(INVALID_HANDLE_VALUE))
 {
@@ -29,64 +31,21 @@ StatusController::~StatusController()
 {
 }
 
-/*static*/ void StatusController::AddStringToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, std::string&& value)
-{
-	writer.String(name.c_str());
-	writer.String(value.c_str());
-}
-
-/*static*/ void StatusController::AddBoolToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, bool value)
-{
-	writer.String(name.c_str());
-	writer.Bool(value);
-}
-
-/*static*/ void StatusController::AddUintToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, uint32_t value)
-{
-	writer.String(name.c_str());
-	writer.Uint(value);
-}
-
-/*static*/ void StatusController::AddUint64ToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, uint64_t value)
-{
-	writer.String(name.c_str());
-	writer.Uint64(value);
-}
-
-/*static*/ void StatusController::AddDoubleToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, double value)
-{
-	writer.String(name.c_str());
-	writer.Double(value);
-}
-
-/*static*/ void StatusController::AddArrayToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, const std::vector<std::string>& values)
-{
-	writer.String(name.c_str());
-	writer.StartArray();
-	for (const auto& value : values)
-		writer.String(value.c_str());
-	writer.EndArray();
-}
-
-/*static*/ void StatusController::AddVersionToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer)
-{
-	AddUintToJson(writer, "Version", 1);
-}
-
-/*static*/ std::string StatusController::CreateErrorResponse(const std::string& request, std::string&& error)
+/*static*/ std::string StatusController::CreateErrorResponse(const std::string& request, std::string&& error, std::exception *e)
 {
 	//Log("StatusController.FailedRequest", Severity::Warning)
 	//	<< R"(Failed to service request. { "error": ")" << error << R"(", "request": ")" << request << R"(" })";
+	nlohmann::json document {
+		{ "Version", VERSION },
+		{ "Error", error }
+	};
 
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
+	if (e != nullptr)
+	{
+		document["Exception"] = e->what();
+	}
 
-	writer.StartObject();
-	AddVersionToJson(writer);
-	AddStringToJson(writer, "Error", std::move(error));
-	writer.EndObject();
-
-	return buffer.GetString();
+	return document.dump();
 }
 
 void StatusController::RecordGetStatusTime(uint64_t nanosecondsInGetStatus)
@@ -98,13 +57,13 @@ void StatusController::RecordGetStatusTime(uint64_t nanosecondsInGetStatus)
 	m_maxNanosecondsInGetStatus = (std::max)(nanosecondsInGetStatus, m_maxNanosecondsInGetStatus);
 }
 
-std::string StatusController::GetStatus(const rapidjson::Document& document, const std::string& request)
+std::string StatusController::GetStatus(const nlohmann::json& document, const std::string& request)
 {
-	if (!document.HasMember("Path") || !document["Path"].IsString())
+	if (!document["Path"].is_string())
 	{
 		return CreateErrorResponse(request, "'Path' must be specified.");
 	}
-	auto path = std::string(document["Path"].GetString());
+	auto path = document["Path"].get<std::string>();
 
 	auto repositoryPath = m_git.DiscoverRepository(path);
 	if (!std::get<0>(repositoryPath))
@@ -120,81 +79,58 @@ std::string StatusController::GetStatus(const rapidjson::Document& document, con
 
 	auto& statusToReport = std::get<1>(status);
 
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
+	nlohmann::json response {
+		{ "Version", VERSION },
+		{ "Path", path },
+		{ "RepoPath", statusToReport.RepositoryPath },
+		{ "WorkingDir", statusToReport.WorkingDirectory },
+		{ "State", statusToReport.State },
+		{ "Branch", statusToReport.Branch },
+		{ "Upstream", statusToReport.Upstream },
+		{ "UpstreamGone", statusToReport.UpstreamGone },
+		{ "AheadBy", statusToReport.AheadBy },
+		{ "BehindBy", statusToReport.BehindBy },
+		{ "IndexAdded", statusToReport.IndexAdded },
+		{ "IndexModified", statusToReport.IndexModified },
+		{ "IndexTypeChange", statusToReport.IndexTypeChange },
+		{ "IndexRenamed", nlohmann::json::array() },
+		{ "WorkingAdded", statusToReport.WorkingAdded },
+		{ "WorkingModified", statusToReport.WorkingModified },
+		{ "WorkingDeleted", statusToReport.WorkingDeleted },
+		{ "WorkingTypeChange", statusToReport.WorkingTypeChange },
+		{ "WorkingRenamed", nlohmann::json::array() },
+		{ "WorkingUnreadable", statusToReport.WorkingUnreadable },
+		{ "Ignored", statusToReport.Ignored },
+		{ "Conflicted", statusToReport.Conflicted },
+		{ "Stashes", nlohmann::json::array() }
+	};
 
-	writer.StartObject();
-
-	AddVersionToJson(writer);
-	AddStringToJson(writer, "Path", path.c_str());
-	AddStringToJson(writer, "RepoPath", statusToReport.RepositoryPath.c_str());
-	AddStringToJson(writer, "WorkingDir", statusToReport.WorkingDirectory.c_str());
-	AddStringToJson(writer, "State", statusToReport.State.c_str());
-	AddStringToJson(writer, "Branch", statusToReport.Branch.c_str());
-	AddStringToJson(writer, "Upstream", statusToReport.Upstream.c_str());
-	AddBoolToJson(writer, "UpstreamGone", statusToReport.UpstreamGone);
-	AddUintToJson(writer, "AheadBy", statusToReport.AheadBy);
-	AddUintToJson(writer, "BehindBy", statusToReport.BehindBy);
-
-	AddArrayToJson(writer, "IndexAdded", statusToReport.IndexAdded);
-	AddArrayToJson(writer, "IndexModified", statusToReport.IndexModified);
-	AddArrayToJson(writer, "IndexDeleted", statusToReport.IndexDeleted);
-	AddArrayToJson(writer, "IndexTypeChange", statusToReport.IndexTypeChange);
-	writer.String("IndexRenamed");
-	writer.StartArray();
 	for (const auto& value : statusToReport.IndexRenamed)
 	{
-		writer.StartObject();
-		writer.String("Old");
-		writer.String(value.first.c_str());
-		writer.String("New");
-		writer.String(value.second.c_str());
-		writer.EndObject();
+		response["IndexRenamed"].push_back({
+			{ "Old", value.first },
+			{ "New", value.second }
+		});
 	}
-	writer.EndArray();
 
-	AddArrayToJson(writer, "WorkingAdded", statusToReport.WorkingAdded);
-	AddArrayToJson(writer, "WorkingModified", statusToReport.WorkingModified);
-	AddArrayToJson(writer, "WorkingDeleted", statusToReport.WorkingDeleted);
-	AddArrayToJson(writer, "WorkingTypeChange", statusToReport.WorkingTypeChange);
-	writer.String("WorkingRenamed");
-	writer.StartArray();
 	for (const auto& value : statusToReport.WorkingRenamed)
 	{
-		writer.StartObject();
-		writer.String("Old");
-		writer.String(value.first.c_str());
-		writer.String("New");
-		writer.String(value.second.c_str());
-		writer.EndObject();
+		response["WorkingRenamed"].push_back({
+			{ "Old", value.first },
+			{ "New", value.second }
+		});
 	}
-	writer.EndArray();
-	AddArrayToJson(writer, "WorkingUnreadable", statusToReport.WorkingUnreadable);
 
-	AddArrayToJson(writer, "Ignored", statusToReport.Ignored);
-	AddArrayToJson(writer, "Conflicted", statusToReport.Conflicted);
-
-	writer.String("Stashes");
-	writer.StartArray();
 	for (const auto& value : statusToReport.Stashes)
 	{
-		writer.StartObject();
-		writer.String("Name");
-		std::string name = "stash@{";
-		name += std::to_string(value.Index);
-		name += "}";
-		writer.String(name.c_str());
-		writer.String("Sha1Id");
-		writer.String(value.Sha1Id.c_str());
-		writer.String("Message");
-		writer.String(value.Message.c_str());
-		writer.EndObject();
+		response["Stashes"].push_back({
+			{ "Name", "stash@{" + std::to_string(value.Index) + "}" },
+			{ "Sha1Id", value.Sha1Id },
+			{ "Message", value.Message }
+		});
 	}
-	writer.EndArray();
 
-	writer.EndObject();
-
-	return buffer.GetString();
+	return response.dump();
 }
 
 std::string StatusController::GetCacheStatistics()
@@ -219,25 +155,22 @@ std::string StatusController::GetCacheStatistics()
 	auto minMillisecondsInGetStatus = static_cast<double>(minNanosecondsInGetStatus) / nanosecondsPerMillisecond;
 	auto maxMillisecondsInGetStatus = static_cast<double>(maxNanosecondsInGetStatus) / nanosecondsPerMillisecond;
 
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
+	nlohmann::json response {
+		{ "Version", VERSION },
+		{ "TotalGetStatusRequests", totalGetStatusCalls },
+		{ "AverageMillisecondsInGetStatus", averageMillisecondsInGetStatus },
+		{ "MinimumMillisecondsInGetStatus", minMillisecondsInGetStatus },
+		{ "MaximumMillisecondsInGetStatus", maxMillisecondsInGetStatus },
+		{ "CacheHits",  statistics.CacheHits },
+		{ "CacheMisses", statistics.CacheMisses },
+		{ "EffectiveCachePrimes", statistics.CacheEffectivePrimeRequests },
+		{ "TotalCachePrimes", statistics.CacheTotalPrimeRequests },
+		{ "EffectiveCacheInvalidations", statistics.CacheEffectiveInvalidationRequests },
+		{ "TotalCacheInvalidations", statistics.CacheTotalInvalidationRequests },
+		{ "FullCacheInvalidations", statistics.CacheInvalidateAllRequests }
+	};
 
-	writer.StartObject();
-	AddVersionToJson(writer);
-	AddUint64ToJson(writer, "TotalGetStatusRequests", totalGetStatusCalls);
-	AddDoubleToJson(writer, "AverageMillisecondsInGetStatus", averageMillisecondsInGetStatus);
-	AddDoubleToJson(writer, "MinimumMillisecondsInGetStatus", minMillisecondsInGetStatus);
-	AddDoubleToJson(writer, "MaximumMillisecondsInGetStatus", maxMillisecondsInGetStatus);
-	AddUint64ToJson(writer, "CacheHits",  statistics.CacheHits);
-	AddUint64ToJson(writer, "CacheMisses", statistics.CacheMisses);
-	AddUint64ToJson(writer, "EffectiveCachePrimes", statistics.CacheEffectivePrimeRequests);
-	AddUint64ToJson(writer, "TotalCachePrimes", statistics.CacheTotalPrimeRequests);
-	AddUint64ToJson(writer, "EffectiveCacheInvalidations", statistics.CacheEffectiveInvalidationRequests);
-	AddUint64ToJson(writer, "TotalCacheInvalidations", statistics.CacheTotalInvalidationRequests);
-	AddUint64ToJson(writer, "FullCacheInvalidations", statistics.CacheInvalidateAllRequests);
-	writer.EndObject();
-
-	return buffer.GetString();
+	return response.dump();
 }
 
 std::string StatusController::Shutdown()
@@ -245,34 +178,35 @@ std::string StatusController::Shutdown()
 	//Log("StatusController.Shutdown", Severity::Info) << R"(Shutting down due to client request.")";
 	::SetEvent(m_requestShutdown);
 
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer{ buffer };
+	nlohmann::json response {
+		{ "Version", VERSION },
+		{ "Result", "Shutting down." }
+	};
 
-	writer.StartObject();
-	AddVersionToJson(writer);
-	AddStringToJson(writer, "Result", "Shutting down.");
-	writer.EndObject();
-
-	return buffer.GetString();
+	return response.dump();
 }
 
 std::string StatusController::HandleRequest(const std::string& request)
 {
-	rapidjson::Document document;
-	const auto& parser = document.Parse(request.c_str());
-	if (parser.HasParseError())
-		return CreateErrorResponse(request, "Request must be valid JSON.");
+	nlohmann::json document;
+	try
+	{
+		document = nlohmann::json::parse(request);
+	}
+	catch (nlohmann::json::parse_error &e)
+	{
+		return CreateErrorResponse(request, "Request must be valid JSON.", &e);
+	}
 
-	if (!document.HasMember("Version") || !document["Version"].IsUint())
+	if (!document["Version"].is_number())
 		return CreateErrorResponse(request, "'Version' must be specified.");
-	auto version = document["Version"].GetUint();
 
-	if (version != 1)
+	if (document["Version"] != 1)
 		return CreateErrorResponse(request, "Requested 'Version' unknown.");
 
-	if (!document.HasMember("Action") || !document["Action"].IsString())
+	if (!document["Action"].is_string())
 		return CreateErrorResponse(request, "'Action' must be specified.");
-	auto action = std::string(document["Action"].GetString());
+	auto action = document["Action"].get<std::string>();
 
 	if (strcasecmp(action.c_str(), "GetStatus") == 0)
 	{

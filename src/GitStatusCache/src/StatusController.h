@@ -3,12 +3,11 @@
 #include "Git.h"
 #include "DirectoryMonitor.h"
 #include "StatusCache.h"
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 
 #include <chrono>
 #include <shared_mutex>
+
+#include <nlohmann/json.hpp>
 
 /**
  * Services requests for git status information.
@@ -30,44 +29,9 @@ private:
 	UniqueHandle m_requestShutdown;
 
 	/**
-	* Adds named string to JSON response.
-	*/
-	static void AddStringToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, std::string&& value);
-
-	/**
-	* Adds bool to JSON response.
-	*/
-	static void AddBoolToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, bool value);
-
-	/**
-	* Adds uint32_t to JSON response.
-	*/
-	static void AddUintToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, uint32_t value);
-
-	/**
-	* Adds uint64_t to JSON response.
-	*/
-	static void AddUint64ToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, uint64_t value);
-
-	/**
-	* Adds double to JSON response.
-	*/
-	static void AddDoubleToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, double value);
-
-	/**
-	* Adds vector of strings to JSON response.
-	*/
-	static void AddArrayToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer, std::string&& name, const std::vector<std::string>& value);
-
-	/**
-	 * Adds version to JSON response.
-	 */
-	static void AddVersionToJson(rapidjson::Writer<rapidjson::StringBuffer>& writer);
-
-	/**
 	 * Creates JSON response for errors.
 	 */
-	static std::string CreateErrorResponse(const std::string& request, std::string&& error);
+	static std::string CreateErrorResponse(const std::string& request, std::string&& error, std::exception *e = nullptr);
 
 	/**
 	 * Records timing datapoint for GetStatus.
@@ -77,7 +41,7 @@ private:
 	/**
 	* Retrieves current git status.
 	*/
-	std::string GetStatus(const rapidjson::Document& document, const std::string& request);
+	std::string GetStatus(const nlohmann::json& document, const std::string& request);
 
 	/**
 	* Retrieves information about cache's performance.
