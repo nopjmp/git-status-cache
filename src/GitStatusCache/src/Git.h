@@ -1,6 +1,8 @@
 #pragma once
 
+#include <string>
 #include <filesystem>
+#include <vector>
 
 /**
  * Performs git operations.
@@ -10,7 +12,7 @@ class Git
 public:
 	struct Stash
 	{
-		uint64_t Index;
+		uint64_t Index = 0;
 		std::string Sha1Id;
 		std::string Message;
 	};

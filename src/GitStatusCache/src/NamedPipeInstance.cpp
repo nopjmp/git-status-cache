@@ -43,7 +43,7 @@ NamedPipeInstance::ReadResult NamedPipeInstance::ReadRequest()
 	auto readResult = ::ReadFile(
 		m_pipe,
 		requestBuffer.data(),
-		requestBuffer.capacity() * sizeof(char),
+		(DWORD)requestBuffer.capacity(),
 		&bytesRead,
 		nullptr /*lpOverlapped*/);
 
@@ -79,7 +79,7 @@ NamedPipeInstance::IoResult NamedPipeInstance::WriteResponse(const std::string& 
 	auto writeResult = ::WriteFile(
 		m_pipe,
 		response.data(),
-		response.size(),
+		(DWORD)response.size(),
 		&bytesWritten,
 		nullptr /*lpOverlapped*/);
 
@@ -120,8 +120,8 @@ NamedPipeInstance::NamedPipeInstance(const OnClientRequestCallback& onClientRequ
 		PIPE_ACCESS_DUPLEX,
 		pipeMode,
 		PIPE_UNLIMITED_INSTANCES,
-		BufferSize,
-		BufferSize,
+		(DWORD)BufferSize,
+		(DWORD)BufferSize,
 		timeout,
 		nullptr);
 

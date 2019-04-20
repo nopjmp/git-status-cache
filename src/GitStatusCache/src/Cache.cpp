@@ -3,25 +3,16 @@
 
 std::tuple<bool, Git::Status> Cache::GetStatus(const std::string& repositoryPath)
 {
-	auto foundResultInCache = false;
-	std::tuple<bool, Git::Status> cachedStatus;
-
 	{
 		LockGuard lock(m_cacheMutex);
 		auto cacheEntry = m_cache.find(repositoryPath);
 		if (cacheEntry != m_cache.end())
 		{
-			foundResultInCache = true;
-			cachedStatus = cacheEntry->second;
+			++m_cacheHits;
+			//Log("Cache.GetStatus.CacheHit", Severity::Info)
+			//	<< R"(Found git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
+			return cacheEntry->second;
 		}
-	}
-
-	if (foundResultInCache)
-	{
-		++m_cacheHits;
-		//Log("Cache.GetStatus.CacheHit", Severity::Info)
-		//	<< R"(Found git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
-		return cachedStatus;
 	}
 
 	++m_cacheMisses;
@@ -29,7 +20,6 @@ std::tuple<bool, Git::Status> Cache::GetStatus(const std::string& repositoryPath
 	//	<< R"(Failed to find git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
 
 	auto status = m_git.GetStatus(repositoryPath);
-
 	{
 		LockGuard lock(m_cacheMutex);
 		m_cache[repositoryPath] = status;

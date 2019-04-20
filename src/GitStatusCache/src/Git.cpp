@@ -137,49 +137,49 @@ bool Git::GetRepositoryState(Git::Status& status, UniqueGitRepository& repositor
 	auto state = git_repository_state(repository.get());
 	switch (state)
 	{
-	default:
-		//Log("Git.GetRepositoryState.UnknownResult", Severity::Error)
-		//	<< R"(Encountered unknown repository state. { "repositoryPath": ")" << status.RepositoryPath
-		//	<< R"(", "state": ")" << state << R"(" })";
-		return false;
 	case GIT_REPOSITORY_STATE_NONE:
 		if (git_repository_head_detached(repository.get()))
-			status.State = std::string("DETACHED");
+			status.State = "DETACHED";
 		return true;
 	case GIT_REPOSITORY_STATE_MERGE:
-		status.State = std::string("MERGING");
+		status.State = "MERGING";
 		return true;
 	case GIT_REPOSITORY_STATE_REVERT:
-		status.State = std::string("REVERTING");
+		status.State = "REVERTING";
 		return true;
 	case GIT_REPOSITORY_STATE_CHERRYPICK:
-		status.State = std::string("CHERRY-PICKING");
+		status.State = "CHERRY-PICKING";
 		return true;
 	case GIT_REPOSITORY_STATE_BISECT:
-		status.State = std::string("BISECTING");
+		status.State = "BISECTING";
 		return true;
 	case GIT_REPOSITORY_STATE_REBASE:
-		status.State = std::string("REBASE");
+		status.State = "REBASE";
 		return true;
 	case GIT_REPOSITORY_STATE_REBASE_INTERACTIVE:
-		status.State = std::string("REBASE-i");
+		status.State = "REBASE-i";
 		return true;
 	case GIT_REPOSITORY_STATE_REBASE_MERGE:
-		status.State = std::string("REBASE-m");
+		status.State = "REBASE-m";
 		return true;
 	case GIT_REPOSITORY_STATE_APPLY_MAILBOX:
-		status.State = std::string("AM");
+		status.State = "AM";
 		return true;
 	case GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE:
-		status.State = std::string("AM/REBASE");
+		status.State = "AM/REBASE";
 		return true;
 	}
+
+	//Log("Git.GetRepositoryState.UnknownResult", Severity::Error)
+	//	<< R"(Encountered unknown repository state. { "repositoryPath": ")" << status.RepositoryPath
+	//	<< R"(", "state": ")" << state << R"(" })";
+	return false;
 }
 
 bool Git::SetBranchToCurrentCommit(Git::Status& status)
 {
 	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
-	path.append(L"HEAD");
+	path.append("HEAD");
 	auto commit = ReadFirstLineInFile(path);
 
 	if (!commit.empty())
@@ -194,7 +194,7 @@ bool Git::SetBranchToCurrentCommit(Git::Status& status)
 bool Git::SetBranchFromHeadName(Git::Status& status, const std::filesystem::path& path)
 {
 	auto headName = ReadFirstLineInFile(path);
-	const auto patternToStrip = std::string("refs/heads/");
+	const std::string patternToStrip("refs/heads/");
 	if (headName.size() > patternToStrip.size() && headName.find(patternToStrip) == 0)
 	{
 		status.Branch = headName.substr(patternToStrip.size());
@@ -207,21 +207,21 @@ bool Git::SetBranchFromHeadName(Git::Status& status, const std::filesystem::path
 bool Git::SetBranchFromRebaseApplyHeadName(Git::Status& status)
 {
 	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
-	path.append(L"rebase-apply/head-name");
+	path.append("rebase-apply/head-name");
 	return SetBranchFromHeadName(status, path);
 }
 
 bool Git::SetBranchFromRebaseMergeHeadName(Git::Status& status)
 {
 	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
-	path.append(L"rebase-merge/head-name");
+	path.append("rebase-merge/head-name");
 	return SetBranchFromHeadName(status, path);
 }
 
 bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 {
-	status.Branch = std::string();
-	status.Upstream = std::string();
+	status.Branch = "";
+	status.Upstream = "";
 	status.UpstreamGone = false;
 	status.AheadBy = 0;
 	status.BehindBy = 0;
@@ -232,7 +232,7 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	{
 		///Log("Git.GetRefStatus.UnbornBranch", Severity::Verbose)
 		//	<< R"(Current branch is unborn. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
-		status.Branch = std::string("UNBORN");
+		status.Branch = "UNBORN";
 		return true;
 	}
 	else if (result == GIT_ENOTFOUND)
@@ -271,7 +271,7 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	result = git_branch_upstream(&upstream.get(), head.get());
 	if (result == GIT_ENOTFOUND)
 	{
-		auto upstreamBranchName = git_buf{ 0 };
+		git_buf upstreamBranchName = { 0 };
 		auto upstreamBranchResult = git_branch_upstream_name(
 			&upstreamBranchName,
 			git_reference_owner(head.get()),
@@ -377,7 +377,7 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 	auto result = git_status_list_new(&statusList.get(), repository.get(), &statusOptions);
 	if (result != GIT_OK)
 	{
-		auto lastError = giterr_last();
+		//auto lastError = giterr_last();
 		//Log("Git.GetGitStatus.FailedToCreateStatusList", Severity::Error)
 		//	<< R"(Failed to create status list. { "repositoryPath": ")" << status.RepositoryPath
 		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
@@ -427,7 +427,7 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 			| GIT_STATUS_WT_TYPECHANGE
 			| GIT_STATUS_WT_RENAMED
 			| GIT_STATUS_WT_UNREADABLE;
-		if ((entry->status & workingFlags) != 0)
+		if ((entry->status & workingFlags) != 0 && entry->index_to_workdir != nullptr)
 		{
 			auto hasOldPath = entry->index_to_workdir->old_file.path != nullptr;
 			auto hasNewPath = entry->index_to_workdir->new_file.path != nullptr;
