@@ -28,7 +28,7 @@
 
 
 #include "stdafx.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include "ReadDirectoryChanges.h"
 #include "ReadDirectoryChangesPrivate.h"
 
@@ -170,7 +170,7 @@ void CReadChangesRequest::ProcessNotification()
 		CStringW wstrFilename(fni.FileName, fni.FileNameLength/sizeof(wchar_t));
 
 		// Handle a trailing backslash, such as for a root directory.
-		auto path = boost::filesystem::path(static_cast<LPCWSTR>(m_wstrDirectory));
+		auto path = std::filesystem::path(static_cast<LPCWSTR>(m_wstrDirectory));
 		path.append(static_cast<LPCWSTR>(wstrFilename));
 		wstrFilename = path.c_str();
 		wstrFilename = ExpandFilename(wstrFilename);

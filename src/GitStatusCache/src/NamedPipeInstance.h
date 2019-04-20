@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <thread>
+
 /**
  * Dedicated pipe instance used to service requests for a single client.
  * Each instantiation services requests on its own thread.

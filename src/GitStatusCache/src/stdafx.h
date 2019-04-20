@@ -38,11 +38,4 @@
 #include <unique_resource.h>
 #endif
 
-#include <boost/core/noncopyable.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/shared_mutex.hpp>
-
-#include "Logging.h"
-using namespace Logging;
-
 #include "SmartPointers.h"

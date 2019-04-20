@@ -5,7 +5,7 @@
 /**
  * Caches git status information. This class is thread-safe.
  */
-class StatusCache : boost::noncopyable
+class StatusCache
 {
 private:
 	std::shared_ptr<Cache> m_cache;
@@ -13,6 +13,7 @@ private:
 
 public:
 	StatusCache();
+	StatusCache(const StatusCache&) = delete;
 
 	/**
 	* Retrieves current git status for repository at provided path.

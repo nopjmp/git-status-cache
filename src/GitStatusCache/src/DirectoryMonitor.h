@@ -1,12 +1,14 @@
 #pragma once
-
-#include <boost/thread/shared_mutex.hpp>
 #include <ReadDirectoryChanges.h>
+
+#include <filesystem>
+#include <functional>
+#include <shared_mutex>
 
 /**
  * Monitors directories for changes and provides notifications by callback.
  */
-class DirectoryMonitor : boost::noncopyable
+class DirectoryMonitor
 {
 public:
 	/**
@@ -30,7 +32,7 @@ public:
 	/**
 	 * Callback for change notifications. Provides path and change action.
 	 */
-	using OnChangeCallback = std::function<void(Token, const boost::filesystem::path&, FileAction)>;
+	using OnChangeCallback = std::function<void(Token, const std::filesystem::path&, FileAction)>;
 
 	/**
 	 * Callback for events lost notification. Notifications may be lost if changes
@@ -39,6 +41,8 @@ public:
 	using OnEventsLostCallback = std::function<void(void)>;
 
 private:
+	DirectoryMonitor(const DirectoryMonitor&) = delete;
+
 	HANDLE m_stopNotificationThread = INVALID_HANDLE_VALUE;
 	std::thread m_notificationThread;
 
@@ -48,7 +52,7 @@ private:
 	CReadDirectoryChanges m_readDirectoryChanges;
 
 	std::unordered_map<std::wstring, Token> m_directories;
-	boost::shared_mutex m_directoriesMutex;
+	std::shared_mutex m_directoriesMutex;
 
 	void WaitForNotifications();
 

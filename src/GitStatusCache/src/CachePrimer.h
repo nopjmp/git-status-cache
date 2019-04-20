@@ -1,32 +1,32 @@
 #pragma once
 #include "Cache.h"
-#include <boost/asio/deadline_timer.hpp>
+
+#include <chrono>
+#include <mutex>
+#include <thread>
+#include <unordered_set>
 
 /**
 * Actively updates invalidated cache entries to reduce cache misses on client requests.
 * This class is thread-safe.
 */
-class CachePrimer : boost::noncopyable
+class CachePrimer
 {
 private:
-	using ReadLock = boost::shared_lock<boost::shared_mutex>;
-	using WriteLock = boost::unique_lock<boost::shared_mutex>;
-	using UpgradableLock = boost::upgrade_lock<boost::shared_mutex>;
-	using UpgradedLock = boost::upgrade_to_unique_lock<boost::shared_mutex>;
+	using LockGuard = std::lock_guard<std::mutex>;
 
 	std::shared_ptr<Cache> m_cache;
 
 	UniqueHandle m_stopPrimingThread;
 	std::thread m_primingThread;
+	std::chrono::time_point<std::chrono::steady_clock> m_deadline;
 	std::unordered_set<std::string> m_repositoriesToPrime;
-	boost::asio::io_service m_primingService;
-	boost::asio::deadline_timer m_primingTimer;
-	boost::shared_mutex m_primingMutex;
+	std::mutex m_primingMutex;
 
 	/**
 	* Primes cache by computing status for scheduled repositories.
 	*/
-	void OnPrimingTimerExpiration(boost::system::error_code errorCode);
+	void Prime();
 
 	/**
 	* Reserves thread for priming operations until cache shuts down.
@@ -35,6 +35,7 @@ private:
 
 public:
 	CachePrimer(const std::shared_ptr<Cache>& cache);
+	CachePrimer(const CachePrimer&) = delete;
 	~CachePrimer();
 
 	/**
@@ -42,10 +43,5 @@ public:
 	* Called repeatedly on file changes to refresh status for repositories five seconds after
 	* a wave file change events (ex. a build) subsides.
 	*/
-	void SchedulePrimingForRepositoryPathInFiveSeconds(const std::string& repositoryPath);
-
-	/**
-	* Schedules cache priming for sixty seconds in the future.
-	*/
-	void SchedulePrimingInSixtySeconds();
+	void SchedulePrimingForRepositoryPath(const std::string& repositoryPath);
 };

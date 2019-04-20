@@ -1,12 +1,10 @@
 #include "stdafx.h"
-#include <boost/program_options.hpp>
 #include "DirectoryMonitor.h"
-#include "LoggingModuleSettings.h"
-#include "LoggingInitializationScope.h"
 #include "NamedPipeServer.h"
 #include "StatusCache.h"
 #include "StatusController.h"
 
+#if 0
 using namespace boost::program_options;
 
 options_description BuildGenericOptions()
@@ -41,12 +39,14 @@ void ThrowIfMutuallyExclusiveOptionsSet(
 		throw std::logic_error(std::string("Options '") + option1 + "', '" + option2 + "', and '" + option3 + "' are mutually exclusive.");
 	}
 }
+#endif
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
 	int argc;
 	auto argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
 
+#if 0
 	Logging::LoggingModuleSettings loggingSettings;
 	bool quiet = false;
 	bool verbose = false;
@@ -90,7 +90,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 		loggingSettings.MinimumSeverity = Logging::Severity::Info;
 
 	Logging::LoggingInitializationScope enableLogging(loggingSettings);
-
+#endif
 	StatusController statusController;
 	NamedPipeServer server([&statusController](const std::string& request) { return statusController.HandleRequest(request); });
 

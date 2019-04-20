@@ -7,22 +7,23 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <chrono>
+#include <shared_mutex>
+
 /**
  * Services requests for git status information.
  */
-class StatusController : boost::noncopyable
+class StatusController
 {
 private:
-	using ReadLock = boost::shared_lock<boost::shared_mutex>;
-	using WriteLock = boost::unique_lock<boost::shared_mutex>;
-
-	const boost::posix_time::ptime m_startTime;
+	using ReadLock = std::shared_lock<std::shared_mutex>;
+	using WriteLock = std::unique_lock<std::shared_mutex>;
 
 	uint64_t m_totalNanosecondsInGetStatus = 0;
 	uint64_t m_minNanosecondsInGetStatus = UINT64_MAX;
 	uint64_t m_maxNanosecondsInGetStatus = 0;
 	uint64_t m_totalGetStatusCalls = 0;
-	boost::shared_mutex m_getStatusStatisticsMutex;
+	std::shared_mutex m_getStatusStatisticsMutex;
 
 	Git m_git;
 	StatusCache m_cache;
@@ -90,6 +91,7 @@ private:
 
 public:
 	StatusController();
+	StatusController(const StatusController&) = delete;
 	~StatusController();
 
 	/**

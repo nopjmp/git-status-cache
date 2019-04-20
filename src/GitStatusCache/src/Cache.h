@@ -2,21 +2,20 @@
 #include "Git.h"
 #include "CacheStatistics.h"
 
+#include <mutex>
+
 /**
 * Simple cache that retrieves and stores git status information.
 * This class is thread-safe.
 */
-class Cache : boost::noncopyable
+class Cache
 {
 private:
-	using ReadLock = boost::shared_lock<boost::shared_mutex>;
-	using WriteLock = boost::unique_lock<boost::shared_mutex>;
-	using UpgradableLock = boost::upgrade_lock<boost::shared_mutex>;
-	using UpgradedLock = boost::upgrade_to_unique_lock<boost::shared_mutex>;
+	using LockGuard = std::lock_guard<std::mutex>;
 
 	Git m_git;
 	std::unordered_map<std::string, std::tuple<bool, Git::Status>> m_cache;
-	boost::shared_mutex m_cacheMutex;
+	std::mutex m_cacheMutex;
 
 	std::atomic<uint64_t> m_cacheHits = 0;
 	std::atomic<uint64_t> m_cacheMisses = 0;
@@ -27,6 +26,10 @@ private:
 	std::atomic<uint64_t> m_cacheInvalidateAllRequests = 0;
 
 public:
+	Cache() = default;
+	Cache(const Cache&) = delete;
+	Cache(Cache&&) = default;
+
 	/**
 	* Retrieves current git status for repository at provided path.
 	* Returns from cache if present, otherwise queries git and adds to cache.

@@ -1,11 +1,15 @@
 #include "stdafx.h"
 #include "StatusController.h"
-#include <boost/algorithm/string.hpp>
-#include <boost/timer/timer.hpp>
+
+#include <cstring>
+#ifdef _MSC_VER 
+//not #if defined(_WIN32) || defined(_WIN64) because we have strncasecmp in mingw
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
 
 StatusController::StatusController()
-	: m_startTime(boost::posix_time::second_clock::universal_time())
-	, m_requestShutdown(MakeUniqueHandle(INVALID_HANDLE_VALUE))
+	: m_requestShutdown(MakeUniqueHandle(INVALID_HANDLE_VALUE))
 {
 	auto requestShutdown = ::CreateEvent(
 		nullptr /*lpEventAttributes*/,
@@ -14,8 +18,8 @@ StatusController::StatusController()
 		nullptr /*lpName*/);
 	if (requestShutdown == nullptr)
 	{
-		Log("StatusController.Constructor.CreateEventFailed", Severity::Error)
-			<< "Failed to create event to signal shutdown request.";
+		//Log("StatusController.Constructor.CreateEventFailed", Severity::Error)
+		//	<< "Failed to create event to signal shutdown request.";
 		throw std::runtime_error("CreateEvent failed unexpectedly.");
 	}
 	m_requestShutdown = MakeUniqueHandle(requestShutdown);
@@ -71,8 +75,8 @@ StatusController::~StatusController()
 
 /*static*/ std::string StatusController::CreateErrorResponse(const std::string& request, std::string&& error)
 {
-	Log("StatusController.FailedRequest", Severity::Warning)
-		<< R"(Failed to service request. { "error": ")" << error << R"(", "request": ")" << request << R"(" })";
+	//Log("StatusController.FailedRequest", Severity::Warning)
+	//	<< R"(Failed to service request. { "error": ")" << error << R"(", "request": ")" << request << R"(" })";
 
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
@@ -215,15 +219,11 @@ std::string StatusController::GetCacheStatistics()
 	auto minMillisecondsInGetStatus = static_cast<double>(minNanosecondsInGetStatus) / nanosecondsPerMillisecond;
 	auto maxMillisecondsInGetStatus = static_cast<double>(maxNanosecondsInGetStatus) / nanosecondsPerMillisecond;
 
-	auto currentTime = boost::posix_time::second_clock::universal_time();
-	auto uptime = boost::posix_time::to_simple_string(currentTime - m_startTime);
-
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
 
 	writer.StartObject();
 	AddVersionToJson(writer);
-	AddStringToJson(writer, "Uptime", std::move(uptime));
 	AddUint64ToJson(writer, "TotalGetStatusRequests", totalGetStatusCalls);
 	AddDoubleToJson(writer, "AverageMillisecondsInGetStatus", averageMillisecondsInGetStatus);
 	AddDoubleToJson(writer, "MinimumMillisecondsInGetStatus", minMillisecondsInGetStatus);
@@ -242,7 +242,7 @@ std::string StatusController::GetCacheStatistics()
 
 std::string StatusController::Shutdown()
 {
-	Log("StatusController.Shutdown", Severity::Info) << R"(Shutting down due to client request.")";
+	//Log("StatusController.Shutdown", Severity::Info) << R"(Shutting down due to client request.")";
 	::SetEvent(m_requestShutdown);
 
 	rapidjson::StringBuffer buffer;
@@ -274,18 +274,18 @@ std::string StatusController::HandleRequest(const std::string& request)
 		return CreateErrorResponse(request, "'Action' must be specified.");
 	auto action = std::string(document["Action"].GetString());
 
-	if (boost::iequals(action, "GetStatus"))
+	if (strcasecmp(action.c_str(), "GetStatus") == 0)
 	{
-		boost::timer::cpu_timer timer;
+		auto start = std::chrono::steady_clock::now();
 		auto result = GetStatus(document, request);
-		RecordGetStatusTime(timer.elapsed().wall);
+		RecordGetStatusTime((start - std::chrono::steady_clock::now()).count());
 		return result;
 	}
 
-	if (boost::iequals(action, "GetCacheStatistics"))
+	if (strcasecmp(action.c_str(), "GetCacheStatistics") == 0)
 		return GetCacheStatistics();
 
-	if (boost::iequals(action, "Shutdown"))
+	if (strcasecmp(action.c_str(), "Shutdown") == 0)
 		return Shutdown();
 
 	return CreateErrorResponse(request, "'Action' unrecognized.");

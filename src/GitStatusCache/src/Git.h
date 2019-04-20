@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 
 /**
  * Performs git operations.
@@ -23,8 +24,8 @@ public:
 		std::string Branch;
 		std::string Upstream;
 		bool UpstreamGone = false;
-		int AheadBy = 0;
-		int BehindBy = 0;
+		size_t AheadBy = 0;
+		size_t BehindBy = 0;
 
 		std::vector<std::string> IndexAdded;
 		std::vector<std::string> IndexModified;
@@ -70,7 +71,7 @@ private:
 	/**
 	 * Attempts to set the branch in the status by parsing head-name.
 	 */
-	bool SetBranchFromHeadName(Status& status, const boost::filesystem::path& path);
+	bool SetBranchFromHeadName(Status& status, const std::filesystem::path& path);
 
 	/**
 	* Attempts to set the branch in the status using the reference from .git/rebase-apply/head-name.

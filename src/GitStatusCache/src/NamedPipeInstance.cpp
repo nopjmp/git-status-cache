@@ -3,7 +3,7 @@
 
 void NamedPipeInstance::OnClientRequest()
 {
-	Log("NamedPipeInstance.OnClientRequest.Start", Severity::Verbose) << "Request servicing thread started.";
+	//Log("NamedPipeInstance.OnClientRequest.Start", Severity::Verbose) << "Request servicing thread started.";
 
 	while (true)
 	{
@@ -13,13 +13,13 @@ void NamedPipeInstance::OnClientRequest()
 			break;
 		}
 
-		Log("NamedPipeInstance.OnClientRequest.Request", Severity::Spam)
-			<< R"(Received request from client. { "request": ")" << readResult.second << R"(" })";
+		//Log("NamedPipeInstance.OnClientRequest.Request", Severity::Spam)
+		//	<< R"(Received request from client. { "request": ")" << readResult.second << R"(" })";
 
 		auto response = m_onClientRequestCallback(readResult.second);
 
-		Log("NamedPipeInstance.OnClientRequest.Response", Severity::Spam)
-			<< R"(Sending response to client. { "response": ")" << response << R"(" })";
+		//Log("NamedPipeInstance.OnClientRequest.Response", Severity::Spam)
+		//	<< R"(Sending response to client. { "response": ")" << response << R"(" })";
 
 		auto writeResult = WriteResponse(response);
 		if (writeResult != IoResult::Success)
@@ -33,7 +33,7 @@ void NamedPipeInstance::OnClientRequest()
 	m_pipe.invoke();
 	m_isClosed = true;
 
-	Log("NamedPipeInstance.OnClientRequest.Stop", Severity::Verbose) << "Request servicing thread stopping.";
+	//Log("NamedPipeInstance.OnClientRequest.Stop", Severity::Verbose) << "Request servicing thread stopping.";
 }
 
 NamedPipeInstance::ReadResult NamedPipeInstance::ReadRequest()
@@ -47,25 +47,25 @@ NamedPipeInstance::ReadResult NamedPipeInstance::ReadRequest()
 		&bytesRead,
 		nullptr /*lpOverlapped*/);
 
-	if (!readResult)
+	if (!readResult || bytesRead == 0)
 	{
 		auto error = ::GetLastError();
 		if (error == ERROR_BROKEN_PIPE)
 		{
-			Log("NamedPipeInstance.ReadRequest.Disconnect", Severity::Verbose)
-				<< "Client disconnected. ReadFile returned ERROR_BROKEN_PIPE.";
+			//Log("NamedPipeInstance.ReadRequest.Disconnect", Severity::Verbose)
+			//	<< "Client disconnected. ReadFile returned ERROR_BROKEN_PIPE.";
 			return ReadResult(IoResult::Aborted, std::string());
 		}
 		else if (error == ERROR_OPERATION_ABORTED)
 		{
-			Log("NamedPipeInstance.ReadRequest.Aborted", Severity::Verbose) << "ReadFile returned ERROR_OPERATION_ABORTED.";
+			//Log("NamedPipeInstance.ReadRequest.Aborted", Severity::Verbose) << "ReadFile returned ERROR_OPERATION_ABORTED.";
 			return ReadResult(IoResult::Aborted, std::string());
 		}
 		else
 		{
-			Log("NamedPipeInstance.ReadRequest.UnknownError", Severity::Error)
-				<< R"(ReadFile failed with unexpected error. { "error": )" << error << R"( })";
-			throw std::runtime_error("ReadFile failed unexpectedly.");
+			//Log("NamedPipeInstance.ReadRequest.UnknownError", Severity::Error)
+			//	<< R"(ReadFile failed with unexpected error. { "error": )" << error << R"( })";
+			//throw std::runtime_error("ReadFile failed unexpectedly.");
 			return ReadResult(IoResult::Error, std::string());
 		}
 	}
@@ -79,29 +79,29 @@ NamedPipeInstance::IoResult NamedPipeInstance::WriteResponse(const std::string& 
 	auto writeResult = ::WriteFile(
 		m_pipe,
 		response.data(),
-		response.size() * sizeof(char),
+		response.size(),
 		&bytesWritten,
 		nullptr /*lpOverlapped*/);
 
-	if (!writeResult)
+	if (!writeResult || bytesWritten != response.size())
 	{
 		auto error = ::GetLastError();
 		if (error == ERROR_BROKEN_PIPE)
 		{
-			Log("NamedPipeInstance.WriteResponse.Disconnect", Severity::Verbose)
-				<< "Client disconnected. WriteFile returned ERROR_BROKEN_PIPE.";
+			//Log("NamedPipeInstance.WriteResponse.Disconnect", Severity::Verbose)
+			//	<< "Client disconnected. WriteFile returned ERROR_BROKEN_PIPE.";
 			return IoResult::Aborted;
 		}
 		else if (error == ERROR_OPERATION_ABORTED)
 		{
-			Log("NamedPipeInstance.WriteResponse.Aborted", Severity::Verbose) << "WriteFile returned ERROR_OPERATION_ABORTED.";
+			//Log("NamedPipeInstance.WriteResponse.Aborted", Severity::Verbose) << "WriteFile returned ERROR_OPERATION_ABORTED.";
 			return IoResult::Aborted;
 		}
 		else
 		{
-			Log("NamedPipeInstance.WriteResponse.UnknownError", Severity::Error)
-				<< R"(WriteFile failed with unexpected error. { "error": )" << error << R"( })";
-			throw std::runtime_error("WriteFile failed unexpectedly.");
+			//Log("NamedPipeInstance.WriteResponse.UnknownError", Severity::Error)
+			//	<< R"(WriteFile failed with unexpected error. { "error": )" << error << R"( })";
+			//throw std::runtime_error("WriteFile failed unexpectedly.");
 			return IoResult::Error;
 		}
 	}
@@ -113,7 +113,7 @@ NamedPipeInstance::NamedPipeInstance(const OnClientRequestCallback& onClientRequ
 	: m_onClientRequestCallback(onClientRequestCallback)
 	, m_pipe(MakeUniqueHandle(INVALID_HANDLE_VALUE))
 {
-	auto pipeMode = PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT;
+	auto pipeMode = PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS;
 	auto timeout = 0;
 	auto pipe = ::CreateNamedPipe(
 		L"\\\\.\\pipe\\GitStatusCache",
@@ -127,7 +127,7 @@ NamedPipeInstance::NamedPipeInstance(const OnClientRequestCallback& onClientRequ
 
 	if (pipe == INVALID_HANDLE_VALUE)
 	{
-		Log("NamedPipeInstance.Create", Severity::Error) << "Failed to create named pipe instance.";
+		//Log("NamedPipeInstance.Create", Severity::Error) << "Failed to create named pipe instance.";
 		throw std::runtime_error("Failed to create named pipe instance.");
 	}
 	m_pipe = MakeUniqueHandle(pipe);
@@ -139,8 +139,8 @@ NamedPipeInstance::~NamedPipeInstance()
 	{
 		if (!m_isClosed)
 		{
-			Log("NamedPipeInstance.ShutDown.StoppingBackgroundThread", Severity::Spam)
-				<< R"(Shutting down request servicing thread. { "threadId": 0x)" << std::hex << m_thread.get_id() << " }";
+			//Log("NamedPipeInstance.ShutDown.StoppingBackgroundThread", Severity::Spam)
+			//	<< R"(Shutting down request servicing thread. { "threadId": 0x)" << std::hex << m_thread.get_id() << " }";
 			::CancelSynchronousIo(m_thread.native_handle());
 		}
 		m_thread.join();
@@ -152,12 +152,12 @@ NamedPipeInstance::IoResult NamedPipeInstance::Connect()
 	auto connected = ::ConnectNamedPipe(m_pipe, nullptr /*lpOverlapped*/);
 	if (connected || ::GetLastError() == ERROR_PIPE_CONNECTED)
 	{
-		Log("NamedPipeInstance.Connect.Success", Severity::Spam) << "ConnectNamedPipe succeeded.";
+		//Log("NamedPipeInstance.Connect.Success", Severity::Spam) << "ConnectNamedPipe succeeded.";
 
 		std::call_once(m_flag, [this]()
 		{
-			Log("NamedPipeInstance.StartingBackgroundThread", Severity::Spam)
-				<< "Attempting to start background thread for servicing requests.";
+			//Log("NamedPipeInstance.StartingBackgroundThread", Severity::Spam)
+			//	<< "Attempting to start background thread for servicing requests.";
 			m_thread = std::thread(&NamedPipeInstance::OnClientRequest, this);
 		});
 
@@ -167,12 +167,12 @@ NamedPipeInstance::IoResult NamedPipeInstance::Connect()
 	auto error = GetLastError();
 	if (error == ERROR_OPERATION_ABORTED)
 	{
-		Log("NamedPipeInstance.Connect.Aborted", Severity::Verbose) << "ConnectNamedPipe returned ERROR_OPERATION_ABORTED.";
+		//Log("NamedPipeInstance.Connect.Aborted", Severity::Verbose) << "ConnectNamedPipe returned ERROR_OPERATION_ABORTED.";
 		return IoResult::Aborted;
 	}
 
-	Log("NamedPipeInstance.Connect.UnknownError", Severity::Error)
-		<< R"(ConnectNamedPipe failed with unexpected error. { "error": )" << error << R"( })";
+	//Log("NamedPipeInstance.Connect.UnknownError", Severity::Error)
+	//	<< R"(ConnectNamedPipe failed with unexpected error. { "error": )" << error << R"( })";
 	throw std::runtime_error("ConnectNamedPipe failed unexpectedly.");
 
 	return IoResult::Error;

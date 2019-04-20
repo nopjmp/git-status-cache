@@ -7,7 +7,7 @@
  * When a new client connects the server creates a new NamedPipeInstance to
  * service the clients requests.
  */
-class NamedPipeServer : boost::noncopyable
+class NamedPipeServer
 {
 public:
 	/**
@@ -31,5 +31,6 @@ public:
 	 * Callback must be thread-safe.
 	 */
 	NamedPipeServer(const OnClientRequestCallback& onClientRequestCallback);
+	NamedPipeServer(const NamedPipeServer&) = delete;
 	~NamedPipeServer();
 };

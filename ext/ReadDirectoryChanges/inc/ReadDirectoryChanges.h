@@ -30,6 +30,7 @@
 #pragma once
 
 #include "ThreadSafeQueue.h"
+#include <string>
 
 static const DWORD FILE_ACTION_CHANGES_LOST = 0x009402006;
 typedef std::tuple<UINT32, DWORD, CStringW> TDirectoryChangeNotification;

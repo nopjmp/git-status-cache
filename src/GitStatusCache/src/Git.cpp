@@ -1,11 +1,14 @@
 #include "stdafx.h"
 #include "Git.h"
 #include "StringConverters.h"
-#include <boost/filesystem/operations.hpp>
 
-std::string ReadFirstLineInFile(const boost::filesystem::path& path)
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+
+std::string ReadFirstLineInFile(const std::filesystem::path& path)
 {
-	if (!boost::filesystem::exists(path))
+	if (!std::filesystem::exists(path))
 		return std::string();
 
 	auto fileStream = std::ifstream(path.c_str());
@@ -98,10 +101,10 @@ bool Git::DiscoverRepository(Git::Status& status, const std::string& path)
 	if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToDiscoverRepository", Severity::Warning)
-			<< R"(Failed to open repository. { "path: ")" << path
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToDiscoverRepository", Severity::Warning)
+		//	<< R"(Failed to open repository. { "path: ")" << path
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -117,9 +120,9 @@ bool Git::GetWorkingDirectory(Git::Status& status, UniqueGitRepository& reposito
 	if (path == NULL)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetWorkingDirectory.FailedToFindWorkingDirectory", Severity::Warning)
-			<< R"(Failed to find working directory for repository. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetWorkingDirectory.FailedToFindWorkingDirectory", Severity::Warning)
+		//	<< R"(Failed to find working directory for repository. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -135,9 +138,9 @@ bool Git::GetRepositoryState(Git::Status& status, UniqueGitRepository& repositor
 	switch (state)
 	{
 	default:
-		Log("Git.GetRepositoryState.UnknownResult", Severity::Error)
-			<< R"(Encountered unknown repository state. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "state": ")" << state << R"(" })";
+		//Log("Git.GetRepositoryState.UnknownResult", Severity::Error)
+		//	<< R"(Encountered unknown repository state. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "state": ")" << state << R"(" })";
 		return false;
 	case GIT_REPOSITORY_STATE_NONE:
 		if (git_repository_head_detached(repository.get()))
@@ -175,7 +178,7 @@ bool Git::GetRepositoryState(Git::Status& status, UniqueGitRepository& repositor
 
 bool Git::SetBranchToCurrentCommit(Git::Status& status)
 {
-	auto path = boost::filesystem::path(ConvertToUnicode(status.RepositoryPath));
+	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
 	path.append(L"HEAD");
 	auto commit = ReadFirstLineInFile(path);
 
@@ -188,7 +191,7 @@ bool Git::SetBranchToCurrentCommit(Git::Status& status)
 	return false;
 }
 
-bool Git::SetBranchFromHeadName(Git::Status& status, const boost::filesystem::path& path)
+bool Git::SetBranchFromHeadName(Git::Status& status, const std::filesystem::path& path)
 {
 	auto headName = ReadFirstLineInFile(path);
 	const auto patternToStrip = std::string("refs/heads/");
@@ -203,14 +206,14 @@ bool Git::SetBranchFromHeadName(Git::Status& status, const boost::filesystem::pa
 
 bool Git::SetBranchFromRebaseApplyHeadName(Git::Status& status)
 {
-	auto path = boost::filesystem::path(ConvertToUnicode(status.RepositoryPath));
+	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
 	path.append(L"rebase-apply/head-name");
 	return SetBranchFromHeadName(status, path);
 }
 
 bool Git::SetBranchFromRebaseMergeHeadName(Git::Status& status)
 {
-	auto path = boost::filesystem::path(ConvertToUnicode(status.RepositoryPath));
+	auto path = std::filesystem::path(ConvertToUnicode(status.RepositoryPath));
 	path.append(L"rebase-merge/head-name");
 	return SetBranchFromHeadName(status, path);
 }
@@ -227,24 +230,24 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	auto result = git_repository_head(&head.get(), repository.get());
 	if (result == GIT_EUNBORNBRANCH)
 	{
-		Log("Git.GetRefStatus.UnbornBranch", Severity::Verbose)
-			<< R"(Current branch is unborn. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
+		///Log("Git.GetRefStatus.UnbornBranch", Severity::Verbose)
+		//	<< R"(Current branch is unborn. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
 		status.Branch = std::string("UNBORN");
 		return true;
 	}
 	else if (result == GIT_ENOTFOUND)
 	{
-		Log("Git.GetRefStatus.HeadMissing", Severity::Warning)
-			<< R"(HEAD is missing. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
+		//Log("Git.GetRefStatus.HeadMissing", Severity::Warning)
+		//	<< R"(HEAD is missing. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
 		return false;
 	}
 	else if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToFindHead", Severity::Error)
-			<< R"(Failed to find HEAD. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToFindHead", Severity::Error)
+		//	<< R"(Failed to find HEAD. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -277,9 +280,9 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 		auto canBuildUpstream = false;
 		if (upstreamBranchResult == GIT_OK)
 		{
-			Log("Git.GetRefStatus.UpstreamGone", Severity::Spam)
-				<< R"(Branch has a configured upstream that is gone. { "repositoryPath": ")" << status.RepositoryPath
-				<< R"(", "localBranch": ")" << status.Branch << R"(" })";
+			//Log("Git.GetRefStatus.UpstreamGone", Severity::Spam)
+			//	<< R"(Branch has a configured upstream that is gone. { "repositoryPath": ")" << status.RepositoryPath
+			//	<< R"(", "localBranch": ")" << status.Branch << R"(" })";
 			status.UpstreamGone = true;
 			canBuildUpstream = upstreamBranchName.ptr != nullptr && upstreamBranchName.size != 0;
 		}
@@ -297,9 +300,9 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 		}
 		else
 		{
-			Log("Git.GetRefStatus.NoUpstream", Severity::Spam)
-				<< R"(Branch does not have a remote tracking reference. { "repositoryPath": ")" << status.RepositoryPath
-				<< R"(", "localBranch": ")" << status.Branch << R"(" })";
+			//Log("Git.GetRefStatus.NoUpstream", Severity::Spam)
+			//	<< R"(Branch does not have a remote tracking reference. { "repositoryPath": ")" << status.RepositoryPath
+			//	<< R"(", "localBranch": ")" << status.Branch << R"(" })";
 		}
 
 		return true;
@@ -307,11 +310,11 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	else if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToFindUpstream", Severity::Error)
-			<< R"(Failed to find remote tracking reference. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "localBranch": ")" << status.Branch
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToFindUpstream", Severity::Error)
+		//	<< R"(Failed to find remote tracking reference. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "localBranch": ")" << status.Branch
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -321,11 +324,11 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	if (localTarget == nullptr)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToRetrieveLocalBranchGitReferenceTarget", Severity::Error)
-			<< R"(Failed to retrieve git_oid for local target. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "localBranch": ")" << status.Branch
-			<< R"(", "upstreamBranch": ")" << status.Upstream
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToRetrieveLocalBranchGitReferenceTarget", Severity::Error)
+		//	<< R"(Failed to retrieve git_oid for local target. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "localBranch": ")" << status.Branch
+		//	<< R"(", "upstreamBranch": ")" << status.Upstream
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -333,11 +336,11 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	if (upstreamTarget == nullptr)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToRetrieveRemoteBranchGitReferenceTarget", Severity::Error)
-			<< R"(Failed to retrieve git_oid for upstream target. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "localBranch": ")" << status.Branch
-			<< R"(", "upstreamBranch": ")" << status.Upstream
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToRetrieveRemoteBranchGitReferenceTarget", Severity::Error)
+		//	<< R"(Failed to retrieve git_oid for upstream target. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "localBranch": ")" << status.Branch
+		//	<< R"(", "upstreamBranch": ")" << status.Upstream
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -346,12 +349,12 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 	if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetRefStatus.FailedToRetrieveAheadBehind", Severity::Error)
-			<< R"(Failed to retrieve ahead/behind information. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "localBranch": ")" << status.Branch
-			<< R"(", "upstreamBranch": ")" << status.Upstream
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetRefStatus.FailedToRetrieveAheadBehind", Severity::Error)
+		//	<< R"(Failed to retrieve ahead/behind information. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "localBranch": ")" << status.Branch
+		//	<< R"(", "upstreamBranch": ")" << status.Upstream
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -375,10 +378,10 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 	if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetGitStatus.FailedToCreateStatusList", Severity::Error)
-			<< R"(Failed to create status list. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetGitStatus.FailedToCreateStatusList", Severity::Error)
+		//	<< R"(Failed to create status list. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -522,10 +525,10 @@ bool Git::GetStashList(Status& status, UniqueGitRepository& repository)
 	if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetStashList.FailedToRetrieveStashList", Severity::Error)
-			<< R"(Failed to retrieve stash list. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetStashList.FailedToRetrieveStashList", Severity::Error)
+		//	<< R"(Failed to retrieve stash list. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return false;
 	}
 
@@ -559,17 +562,17 @@ std::tuple<bool, Git::Status> Git::GetStatus(const std::string& path)
 	if (result != GIT_OK)
 	{
 		auto lastError = giterr_last();
-		Log("Git.GetGitStatus.FailedToOpenRepository", Severity::Error)
-			<< R"(Failed to open repository. { "repositoryPath": ")" << status.RepositoryPath
-			<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
-			<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
+		//Log("Git.GetGitStatus.FailedToOpenRepository", Severity::Error)
+		//	<< R"(Failed to open repository. { "repositoryPath": ")" << status.RepositoryPath
+		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
+		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
 		return std::make_tuple(false, Git::Status());
 	}
 
 	if (git_repository_is_bare(repository.get()))
 	{
-		Log("Git.GetGitStatus.BareRepository", Severity::Warning)
-			<< R"(Aborting due to bare repository. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
+		//Log("Git.GetGitStatus.BareRepository", Severity::Warning)
+		//	<< R"(Aborting due to bare repository. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
 		return std::make_tuple(false, Git::Status());
 	}
 

@@ -7,7 +7,7 @@ std::tuple<bool, Git::Status> Cache::GetStatus(const std::string& repositoryPath
 	std::tuple<bool, Git::Status> cachedStatus;
 
 	{
-		ReadLock readLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		auto cacheEntry = m_cache.find(repositoryPath);
 		if (cacheEntry != m_cache.end())
 		{
@@ -19,19 +19,19 @@ std::tuple<bool, Git::Status> Cache::GetStatus(const std::string& repositoryPath
 	if (foundResultInCache)
 	{
 		++m_cacheHits;
-		Log("Cache.GetStatus.CacheHit", Severity::Info)
-			<< R"(Found git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
+		//Log("Cache.GetStatus.CacheHit", Severity::Info)
+		//	<< R"(Found git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
 		return cachedStatus;
 	}
 
 	++m_cacheMisses;
-	Log("Cache.GetStatus.CacheMiss", Severity::Warning)
-		<< R"(Failed to find git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
+	//Log("Cache.GetStatus.CacheMiss", Severity::Warning)
+	//	<< R"(Failed to find git status in cache. { "repositoryPath": ")" << repositoryPath << R"(" })";
 
 	auto status = m_git.GetStatus(repositoryPath);
 
 	{
-		WriteLock writeLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		m_cache[repositoryPath] = status;
 	}
 
@@ -42,20 +42,20 @@ void Cache::PrimeCacheEntry(const std::string& repositoryPath)
 {
 	++m_cacheTotalPrimeRequests;
 	{
-		ReadLock readLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		auto cacheEntry = m_cache.find(repositoryPath);
 		if (cacheEntry != m_cache.end())
 			return;
 	}
 
 	++m_cacheEffectivePrimeRequests;
-	Log("Cache.PrimeCacheEntry", Severity::Info)
-		<< R"(Priming cache entry. { "repositoryPath": ")" << repositoryPath << R"(" })";
+	//Log("Cache.PrimeCacheEntry", Severity::Info)
+	//	<< R"(Priming cache entry. { "repositoryPath": ")" << repositoryPath << R"(" })";
 
 	auto status = m_git.GetStatus(repositoryPath);
 
 	{
-		WriteLock writeLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		m_cache[repositoryPath] = status;
 	}
 }
@@ -65,11 +65,10 @@ bool Cache::InvalidateCacheEntry(const std::string& repositoryPath)
 	++m_cacheTotalInvalidationRequests;
 	bool invalidatedCacheEntry = false;
 	{
-		UpgradableLock readLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		auto cacheEntry = m_cache.find(repositoryPath);
 		if (cacheEntry != m_cache.end())
 		{
-			UpgradedLock writeLock(readLock);
 			cacheEntry = m_cache.find(repositoryPath);
 			if (cacheEntry != m_cache.end())
 			{
@@ -88,12 +87,12 @@ void Cache::InvalidateAllCacheEntries()
 {
 	++m_cacheInvalidateAllRequests;
 	{
-		WriteLock writeLock(m_cacheMutex);
+		LockGuard lock(m_cacheMutex);
 		m_cache.clear();
 	}
 
-	Log("Cache.InvalidateAllCacheEntries.", Severity::Warning)
-		<< R"(Invalidated all git status information in cache.)";
+	//Log("Cache.InvalidateAllCacheEntries.", Severity::Warning)
+	//	<< R"(Invalidated all git status information in cache.)";
 }
 
 CacheStatistics Cache::GetCacheStatistics()
