@@ -61,6 +61,10 @@ void SvcInstall()
 		return;
 	}
 
+	if (!StartService(schService, 0, NULL)) {
+		printf("Failed to start service after installation. Continuing...\n");
+	}
+
 	printf("Service installed successfully\n");
 
 	CloseServiceHandle(schService);
