@@ -1,100 +1,84 @@
 #include "stdafx.h"
 #include "DirectoryMonitor.h"
 #include "NamedPipeServer.h"
+#include "Service.h"
 #include "StatusCache.h"
 #include "StatusController.h"
 
-#if 0
-using namespace boost::program_options;
-
-options_description BuildGenericOptions()
+int IsService(void)
 {
-	options_description generic{ "Generic options" };
-	generic.add_options()
-		("help", "Display help message");
-	return generic;
-}
+	BOOL		member;
+	PSID		ServiceSid;
+	PSID		LocalSystemSid;
+	SID_IDENTIFIER_AUTHORITY NtAuthority = { SECURITY_NT_AUTHORITY };
 
-options_description BuildLoggingOptions(bool* enableFileLogging, bool* quiet, bool* verbose, bool* spam)
-{
-	options_description logging{ "Logging options" };
-	logging.add_options()
-		("fileLogging", bool_switch(enableFileLogging), "Enables file logging.")
-		("quiet,q", bool_switch(quiet), "Disables all non-critical logging output.")
-		("verbose,v", bool_switch(verbose), "Enables verbose logging output.")
-		("spam,s", bool_switch(spam), "Enables spam logging output.");
-	return logging;
-}
-
-void ThrowIfMutuallyExclusiveOptionsSet(
-	const variables_map& vm,
-	const std::string& option1,
-	const std::string& option2,
-	const std::string& option3)
-{
-	if (   (!vm[option1].defaulted() && (!vm[option2].defaulted() || !vm[option3].defaulted()))
-		|| (!vm[option2].defaulted() && (!vm[option1].defaulted() || !vm[option3].defaulted()))
-		|| (!vm[option3].defaulted() && (!vm[option1].defaulted() || !vm[option2].defaulted())))
+	/* First check for LocalSystem */
+	if (!AllocateAndInitializeSid(&NtAuthority, 1,
+		SECURITY_LOCAL_SYSTEM_RID, 0, 0, 0, 0, 0, 0, 0,
+		&LocalSystemSid))
 	{
-		throw std::logic_error(std::string("Options '") + option1 + "', '" + option2 + "', and '" + option3 + "' are mutually exclusive.");
-	}
-}
-#endif
-
-int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
-{
-	int argc;
-	auto argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
-
-#if 0
-	Logging::LoggingModuleSettings loggingSettings;
-	bool quiet = false;
-	bool verbose = false;
-	bool spam = false;
-
-	auto generic = BuildGenericOptions();
-	auto logging = BuildLoggingOptions(&loggingSettings.EnableFileLogging, &quiet, &verbose, &spam);
-	options_description all{ "Allowed options" };
-	all.add(generic).add(logging);
-
-	try
-	{
-		variables_map vm;
-		store(wcommand_line_parser(argc, argv).options(all).run(), vm);
-
-		if (vm.count("help"))
-		{
-			std::cout << generic << std::endl;
-			std::cout << logging << std::endl;
-			return 1;
-		}
-
-		ThrowIfMutuallyExclusiveOptionsSet(vm, "quiet", "verbose", "spam");
-		notify(vm);
-	}
-	catch (std::exception& e)
-	{
-		std::cerr << "Error: " << e.what() << std::endl;
-		std::cout << generic << std::endl;
-		std::cout << logging << std::endl;
 		return -1;
 	}
 
-	if (quiet)
-		loggingSettings.MinimumSeverity = Logging::Severity::Error;
-	else if (verbose)
-		loggingSettings.MinimumSeverity = Logging::Severity::Verbose;
-	else if (spam)
-		loggingSettings.MinimumSeverity = Logging::Severity::Spam;
-	else
-		loggingSettings.MinimumSeverity = Logging::Severity::Info;
+	if (!CheckTokenMembership(NULL, LocalSystemSid, &member))
+	{
+		FreeSid(LocalSystemSid);
+		return -1;
+	}
+	FreeSid(LocalSystemSid);
 
-	Logging::LoggingInitializationScope enableLogging(loggingSettings);
-#endif
-	StatusController statusController;
-	NamedPipeServer server([&statusController](const std::string& request) { return statusController.HandleRequest(request); });
+	if (member)
+	{
+		return 1;
+	}
 
-	statusController.WaitForShutdownRequest();
+	/* Check for service group membership */
+	if (!AllocateAndInitializeSid(&NtAuthority, 1,
+		SECURITY_SERVICE_RID, 0, 0, 0, 0, 0, 0, 0,
+		&ServiceSid))
+	{
+		return -1;
+	}
 
-	return 0;
+	if (!CheckTokenMembership(NULL, ServiceSid, &member))
+	{
+		FreeSid(ServiceSid);
+		return -1;
+	}
+	FreeSid(ServiceSid);
+
+	return member;
+}
+
+int wmain(int argc, char** argv)
+{
+	if (argv[1] != NULL)
+	{
+		if (_strcmpi(argv[1], "install") == 0)
+		{
+			SvcInstall();
+			return 0;
+		}
+
+		if (_strcmpi(argv[1], "uninstall") == 0)
+		{
+			SvcUninstall();
+			return 0;
+		}
+
+		if (_strcmpi(argv[1], "debug") == 0)
+		{
+			StatusController statusController;
+			NamedPipeServer server([&statusController](const std::string & request) { return statusController.HandleRequest(request); });
+
+			statusController.WaitForShutdownRequest();
+			return 0;
+		}
+	}
+
+	if (IsService() == 1) {
+		return SvcStart();
+	}
+
+	return 1;
 }

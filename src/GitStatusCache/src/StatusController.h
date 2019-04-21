@@ -7,7 +7,11 @@
 #include <chrono>
 #include <shared_mutex>
 
+// ignore warnings from nlohmann headers
+#pragma warning(push, 0)
+#pragma warning (disable : ALL_CODE_ANALYSIS_WARNINGS)
 #include <nlohmann/json.hpp>
+#pragma warning(pop)
 
 /**
  * Services requests for git status information.
@@ -48,11 +52,6 @@ private:
 	*/
 	std::string GetCacheStatistics();
 
-	/**
-	 * Shuts down the service.
-	 */
-	std::string StatusController::Shutdown();
-
 public:
 	StatusController();
 	StatusController(const StatusController&) = delete;
@@ -62,6 +61,11 @@ public:
 	* Deserializes request and returns serialized response.
 	*/
 	std::string StatusController::HandleRequest(const std::string& request);
+
+	/**
+	 * Shuts down the service.
+	 */
+	void StatusController::Shutdown();
 
 	/**
 	 * Blocks until shutdown request received.

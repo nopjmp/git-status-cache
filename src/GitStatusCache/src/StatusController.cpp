@@ -2,11 +2,6 @@
 #include "StatusController.h"
 
 #include <cstring>
-#ifdef _MSC_VER 
-//not #if defined(_WIN32) || defined(_WIN64) because we have strncasecmp in mingw
-#define strncasecmp _strnicmp
-#define strcasecmp _stricmp
-#endif
 
 constexpr uint32_t VERSION = 1;
 
@@ -29,6 +24,8 @@ StatusController::StatusController()
 
 StatusController::~StatusController()
 {
+	// signal m_requestShutdown just in case
+	Shutdown();
 }
 
 /*static*/ std::string StatusController::CreateErrorResponse(const std::string& request, std::string&& error, std::exception *e)
@@ -173,17 +170,10 @@ std::string StatusController::GetCacheStatistics()
 	return response.dump();
 }
 
-std::string StatusController::Shutdown()
+void StatusController::Shutdown()
 {
 	//Log("StatusController.Shutdown", Severity::Info) << R"(Shutting down due to client request.")";
 	::SetEvent(m_requestShutdown);
-
-	nlohmann::json response {
-		{ "Version", VERSION },
-		{ "Result", "Shutting down." }
-	};
-
-	return response.dump();
 }
 
 std::string StatusController::HandleRequest(const std::string& request)
@@ -208,7 +198,7 @@ std::string StatusController::HandleRequest(const std::string& request)
 		return CreateErrorResponse(request, "'Action' must be specified.");
 	auto action = document["Action"].get<std::string>();
 
-	if (strcasecmp(action.c_str(), "GetStatus") == 0)
+	if (_strcmpi(action.c_str(), "GetStatus") == 0)
 	{
 		auto start = std::chrono::steady_clock::now();
 		auto result = GetStatus(document, request);
@@ -216,11 +206,20 @@ std::string StatusController::HandleRequest(const std::string& request)
 		return result;
 	}
 
-	if (strcasecmp(action.c_str(), "GetCacheStatistics") == 0)
+	if (_strcmpi(action.c_str(), "GetCacheStatistics") == 0)
 		return GetCacheStatistics();
 
-	if (strcasecmp(action.c_str(), "Shutdown") == 0)
-		return Shutdown();
+	if (_strcmpi(action.c_str(), "Shutdown") == 0)
+	{
+		Shutdown();
+		nlohmann::json response{
+			{ "Version", VERSION },
+			{ "Result", "Shutting down." }
+		};
+
+		return response.dump();
+	}
+		
 
 	return CreateErrorResponse(request, "'Action' unrecognized.");
 }
