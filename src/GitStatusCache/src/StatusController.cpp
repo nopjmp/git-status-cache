@@ -76,7 +76,7 @@ std::string StatusController::GetStatus(const nlohmann::json& document, const st
 
 	auto& statusToReport = std::get<1>(status);
 
-	nlohmann::json response {
+	nlohmann::json response{
 		{ "Version", VERSION },
 		{ "Path", path },
 		{ "RepoPath", statusToReport.RepositoryPath },
@@ -89,6 +89,7 @@ std::string StatusController::GetStatus(const nlohmann::json& document, const st
 		{ "BehindBy", statusToReport.BehindBy },
 		{ "IndexAdded", statusToReport.IndexAdded },
 		{ "IndexModified", statusToReport.IndexModified },
+		{ "IndexDeleted", statusToReport.IndexDeleted },
 		{ "IndexTypeChange", statusToReport.IndexTypeChange },
 		{ "IndexRenamed", nlohmann::json::array() },
 		{ "WorkingAdded", statusToReport.WorkingAdded },
