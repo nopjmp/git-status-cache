@@ -24,7 +24,7 @@ void SvcInstall()
 {
 	SC_HANDLE schManager;
 	SC_HANDLE schService;
-	std::vector<wchar_t> pathBuffer;
+	std::vector<TCHAR> pathBuffer;
 
 	DWORD copied = 0;
 	do {
@@ -32,7 +32,7 @@ void SvcInstall()
 		copied = GetModuleFileName(0, &pathBuffer[0], MAX_PATH);
 	} while (copied >= pathBuffer.size());
 
-	std::wstring szPath(pathBuffer.begin(), pathBuffer.end());
+	std::basic_string<TCHAR> szPath(pathBuffer.begin(), pathBuffer.end());
 
 	schManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 
