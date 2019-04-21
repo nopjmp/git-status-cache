@@ -137,15 +137,15 @@ void SvcUninstall()
 				break;
 			}
 		}
-	}
 
-	if (!ControlService(
-		schService,
-		SERVICE_CONTROL_STOP,
-		(LPSERVICE_STATUS)& ssp))
-	{
-		printf("ControlService failed (%d)\n", GetLastError());
-		goto stop_cleanup;
+		if (!ControlService(
+			schService,
+			SERVICE_CONTROL_STOP,
+			(LPSERVICE_STATUS)& ssp))
+		{
+			printf("ControlService failed (%d)\n", GetLastError());
+			goto stop_cleanup;
+		}
 	}
 
 	while (ssp.dwCurrentState != SERVICE_STOPPED)

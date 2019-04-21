@@ -1,6 +1,6 @@
 #pragma once
 
-void SvcInstall(std::wstring szPath);
+void SvcInstall();
 void SvcUninstall();
 
 int SvcStart();
