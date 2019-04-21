@@ -17,6 +17,7 @@ public:
 	using OnClientRequestCallback = std::function<std::string(const std::string&)>;
 
 private:
+	SECURITY_ATTRIBUTES* m_SecurityAttr;
 	std::thread m_serverThread;
 	std::vector<std::unique_ptr<NamedPipeInstance>> m_pipeInstances;
 	OnClientRequestCallback m_onClientRequestCallback;

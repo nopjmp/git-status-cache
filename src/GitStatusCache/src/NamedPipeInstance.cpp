@@ -109,7 +109,7 @@ NamedPipeInstance::IoResult NamedPipeInstance::WriteResponse(const std::string& 
 	return IoResult::Success;
 }
 
-NamedPipeInstance::NamedPipeInstance(const OnClientRequestCallback& onClientRequestCallback)
+NamedPipeInstance::NamedPipeInstance(SECURITY_ATTRIBUTES* sa, const OnClientRequestCallback& onClientRequestCallback)
 	: m_onClientRequestCallback(onClientRequestCallback)
 	, m_pipe(MakeUniqueHandle(INVALID_HANDLE_VALUE))
 {
@@ -123,7 +123,7 @@ NamedPipeInstance::NamedPipeInstance(const OnClientRequestCallback& onClientRequ
 		(DWORD)BufferSize,
 		(DWORD)BufferSize,
 		timeout,
-		nullptr);
+		sa);
 
 	if (pipe == INVALID_HANDLE_VALUE)
 	{

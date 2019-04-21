@@ -37,7 +37,7 @@ public:
 	* Constructor. Callback must be thread-safe.
 	* @param onClientRequestCallback Callback with logic to handle the request.
 	*/
-	NamedPipeInstance(const OnClientRequestCallback& onClientRequestCallback);
+	NamedPipeInstance(SECURITY_ATTRIBUTES* sa, const OnClientRequestCallback& onClientRequestCallback);
 	~NamedPipeInstance();
 
 	/**
