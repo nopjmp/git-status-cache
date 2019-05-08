@@ -178,6 +178,7 @@
     <ClInclude Include="..\src\CachePrimer.h" />
     <ClInclude Include="..\src\CacheStatistics.h" />
     <ClInclude Include="..\src\Git.h" />
+    <ClInclude Include="..\src\ReadDirectoryChanges.h" />
     <ClInclude Include="..\src\Service.h" />
     <ClInclude Include="..\src\SmartPointers.h" />
     <ClInclude Include="..\src\StatusCache.h" />
@@ -198,6 +199,7 @@
     <ClCompile Include="..\src\Main.cpp" />
     <ClCompile Include="..\src\NamedPipeInstance.cpp" />
     <ClCompile Include="..\src\NamedPipeServer.cpp" />
+    <ClCompile Include="..\src\ReadDirectoryChanges.cpp" />
     <ClCompile Include="..\src\Service.cpp" />
     <ClCompile Include="..\src\StatusCache.cpp" />
     <ClCompile Include="..\src\StatusController.cpp" />
