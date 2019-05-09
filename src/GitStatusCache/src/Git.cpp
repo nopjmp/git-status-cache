@@ -9,11 +9,11 @@
 std::string ReadFirstLineInFile(const std::filesystem::path& path)
 {
 	if (!std::filesystem::exists(path))
-		return std::string();
+		return "";
 
 	auto fileStream = std::ifstream(path.c_str());
 	if (!fileStream.good())
-		return std::string();
+		return "";
 
 	std::string firstLine;
 	std::getline(fileStream, firstLine);
@@ -114,7 +114,7 @@ bool Git::DiscoverRepository(Git::Status& status, const std::string& path)
 
 bool Git::GetWorkingDirectory(Git::Status& status, UniqueGitRepository& repository)
 {
-	status.WorkingDirectory = std::string();
+	status.WorkingDirectory = "";
 
 	auto path = git_repository_workdir(repository.get());
 	if (path == NULL)
@@ -126,13 +126,13 @@ bool Git::GetWorkingDirectory(Git::Status& status, UniqueGitRepository& reposito
 		return false;
 	}
 
-	status.WorkingDirectory = std::string(path);
+	status.WorkingDirectory = path;
 	return true;
 }
 
 bool Git::GetRepositoryState(Git::Status& status, UniqueGitRepository& repository)
 {
-	status.State = std::string();
+	status.State = "";
 
 	auto state = git_repository_state(repository.get());
 	switch (state)
@@ -251,7 +251,7 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 		return false;
 	}
 
-	status.Branch = std::string(git_reference_shorthand(head.get()));
+	status.Branch = git_reference_shorthand(head.get());
 	if (status.Branch == "HEAD")
 	{
 		if (status.State == "DETACHED")
@@ -289,8 +289,8 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 
 		if (canBuildUpstream)
 		{
-			const auto patternToRemove = std::string("refs/remotes/");
-			auto upstreamName = std::string(upstreamBranchName.ptr);
+			const std::string patternToRemove("refs/remotes/");
+			std::string upstreamName(upstreamBranchName.ptr);
 			auto patternPosition = upstreamName.find(patternToRemove);
 			if (patternPosition == 0 && upstreamName.size() > patternToRemove.size())
 			{
@@ -318,7 +318,7 @@ bool Git::GetRefStatus(Git::Status& status, UniqueGitRepository& repository)
 		return false;
 	}
 
-	status.Upstream = std::string(git_reference_shorthand(upstream.get()));
+	status.Upstream = git_reference_shorthand(upstream.get());
 
 	auto localTarget = git_reference_target(head.get());
 	if (localTarget == nullptr)
@@ -385,11 +385,11 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 		return false;
 	}
 
-	for (auto i = size_t{ 0 }; i < git_status_list_entrycount(statusList.get()); ++i)
+	for (size_t i = 0; i < git_status_list_entrycount(statusList.get()); ++i)
 	{
 		auto entry = git_status_byindex(statusList.get(), i);
 
-		static const auto indexFlags =
+		const auto indexFlags =
 			GIT_STATUS_INDEX_NEW
 			| GIT_STATUS_INDEX_MODIFIED
 			| GIT_STATUS_INDEX_DELETED
@@ -420,7 +420,7 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 				status.IndexTypeChange.push_back(path);
 		}
 
-		static const auto workingFlags =
+		const auto workingFlags =
 			GIT_STATUS_WT_NEW
 			| GIT_STATUS_WT_MODIFIED
 			| GIT_STATUS_WT_DELETED
@@ -454,7 +454,7 @@ bool Git::GetFileStatus(Git::Status& status, UniqueGitRepository& repository)
 				status.WorkingUnreadable.push_back(path);
 		}
 
-		static const auto conflictIgnoreFlags = GIT_STATUS_IGNORED | GIT_STATUS_CONFLICTED;
+		const auto conflictIgnoreFlags = GIT_STATUS_IGNORED | GIT_STATUS_CONFLICTED;
 		if ((entry->status & conflictIgnoreFlags) != 0)
 		{
 			// libgit2 reports a subset of conflicts as two separate status entries with identical paths.
@@ -511,10 +511,11 @@ bool Git::GetStashList(Status& status, UniqueGitRepository& repository)
 				return -1;
 
 			char hashBuffer[40] = { 0 };
-			Stash stash;
-			stash.Sha1Id = std::string(git_oid_tostr(hashBuffer, _countof(hashBuffer), stash_id));
-			stash.Index = index;
-			stash.Message = std::string(message);
+			Stash stash = {
+				index,
+				{ git_oid_tostr(hashBuffer, sizeof(hashBuffer), stash_id) },
+				message
+			};
 
 			auto payloadAsStashes = reinterpret_cast<std::vector<Stash>*>(payload);
 			payloadAsStashes->emplace_back(std::move(stash));
@@ -539,9 +540,9 @@ bool Git::GetStashList(Status& status, UniqueGitRepository& repository)
 std::tuple<bool, std::string> Git::DiscoverRepository(const std::string& path)
 {
 	Git::Status status;
-	return Git::DiscoverRepository(status, path)
-		? std::make_tuple(true, std::move(status.RepositoryPath))
-		: std::make_tuple(false, std::string());
+	if (Git::DiscoverRepository(status, path))
+		return { true, std::move(status.RepositoryPath) };
+	return { false, std::string() };
 }
 
 std::tuple<bool, Git::Status> Git::GetStatus(const std::string& path)
@@ -549,7 +550,7 @@ std::tuple<bool, Git::Status> Git::GetStatus(const std::string& path)
 	Git::Status status;
 	if (!Git::DiscoverRepository(status, path))
 	{
-		return std::make_tuple(false, Git::Status());
+		return { false, Git::Status() };
 	}
 
 	auto repository = MakeUniqueGitRepository(nullptr);
@@ -566,14 +567,14 @@ std::tuple<bool, Git::Status> Git::GetStatus(const std::string& path)
 		//	<< R"(Failed to open repository. { "repositoryPath": ")" << status.RepositoryPath
 		//	<< R"(", "result": ")" << ConvertErrorCodeToString(static_cast<git_error_code>(result))
 		//	<< R"(", "lastError": ")" << (lastError == nullptr ? "null" : lastError->message) << R"(" })";
-		return std::make_tuple(false, Git::Status());
+		return { false, Git::Status() };
 	}
 
 	if (git_repository_is_bare(repository.get()))
 	{
 		//Log("Git.GetGitStatus.BareRepository", Severity::Warning)
 		//	<< R"(Aborting due to bare repository. { "repositoryPath": ")" << status.RepositoryPath << R"(" })";
-		return std::make_tuple(false, Git::Status());
+		return { false, Git::Status() };
 	}
 
 	Git::GetWorkingDirectory(status, repository);
@@ -581,7 +582,7 @@ std::tuple<bool, Git::Status> Git::GetStatus(const std::string& path)
 	Git::GetRefStatus(status, repository);
 	Git::GetStashList(status, repository);
 	if (!Git::GetFileStatus(status, repository))
-		return std::make_tuple(false, Git::Status());
+		return { false, Git::Status() };
 
-	return std::make_tuple(true, std::move(status));
+	return { true, std::move(status) };
 }

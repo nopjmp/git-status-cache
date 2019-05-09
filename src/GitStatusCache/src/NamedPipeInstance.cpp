@@ -7,8 +7,8 @@ void NamedPipeInstance::OnClientRequest()
 
 	while (true)
 	{
-		auto readResult = ReadRequest();
-		if (readResult.first != IoResult::Success)
+		auto [ result, data ] = ReadRequest();
+		if (result != IoResult::Success)
 		{
 			break;
 		}
@@ -16,13 +16,13 @@ void NamedPipeInstance::OnClientRequest()
 		//Log("NamedPipeInstance.OnClientRequest.Request", Severity::Spam)
 		//	<< R"(Received request from client. { "request": ")" << readResult.second << R"(" })";
 
-		auto response = m_onClientRequestCallback(readResult.second);
+		auto response = m_onClientRequestCallback(data);
 
 		//Log("NamedPipeInstance.OnClientRequest.Response", Severity::Spam)
 		//	<< R"(Sending response to client. { "response": ")" << response << R"(" })";
 
-		auto writeResult = WriteResponse(response);
-		if (writeResult != IoResult::Success)
+		result = WriteResponse(response);
+		if (result != IoResult::Success)
 		{
 			break;
 		}
@@ -54,23 +54,23 @@ NamedPipeInstance::ReadResult NamedPipeInstance::ReadRequest()
 		{
 			//Log("NamedPipeInstance.ReadRequest.Disconnect", Severity::Verbose)
 			//	<< "Client disconnected. ReadFile returned ERROR_BROKEN_PIPE.";
-			return ReadResult(IoResult::Aborted, std::string());
+			return { IoResult::Aborted, "" };
 		}
 		else if (error == ERROR_OPERATION_ABORTED)
 		{
 			//Log("NamedPipeInstance.ReadRequest.Aborted", Severity::Verbose) << "ReadFile returned ERROR_OPERATION_ABORTED.";
-			return ReadResult(IoResult::Aborted, std::string());
+			return { IoResult::Aborted, "" };
 		}
 		else
 		{
 			//Log("NamedPipeInstance.ReadRequest.UnknownError", Severity::Error)
 			//	<< R"(ReadFile failed with unexpected error. { "error": )" << error << R"( })";
 			//throw std::runtime_error("ReadFile failed unexpectedly.");
-			return ReadResult(IoResult::Error, std::string());
+			return { IoResult::Error, "" };
 		}
 	}
 
-	return ReadResult(IoResult::Success, std::string(requestBuffer.data(), bytesRead / sizeof(char)));
+	return { IoResult::Success, { requestBuffer.data(), bytesRead / sizeof(char) } };
 }
 
 NamedPipeInstance::IoResult NamedPipeInstance::WriteResponse(const std::string& response)

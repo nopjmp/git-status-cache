@@ -4,7 +4,7 @@
 
 CacheInvalidator::CacheInvalidator(const std::shared_ptr<Cache>& cache)
 	: m_cache(cache)
-	, m_cachePrimer(m_cache)
+	, m_cachePrimer(cache)
 {
 	m_directoryMonitor = std::make_unique<DirectoryMonitor>(
 		[this](DirectoryMonitor::Token token, const std::filesystem::path& path, DirectoryMonitor::FileAction action)

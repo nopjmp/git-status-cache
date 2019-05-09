@@ -19,7 +19,7 @@ public:
 
 private:
 	using OnClientRequestCallback = std::function<std::string(const std::string&)>;
-	using ReadResult = std::pair<IoResult, std::string>;
+	using ReadResult = std::tuple<IoResult, std::string>;
 	const size_t BufferSize = 4096;
 
 	bool m_isClosed = false;
